@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Scooby Bruh Live</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+.platform-card { 
+  transition: transform 0.3s ease, box-shadow 0.3s ease; 
+  background: linear-gradient(145deg, #1f2937, #374151); 
+}
+.platform-card:hover { 
+  transform: translateY(-2px); 
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3); 
+}
+</style>
+</head>
+<body class="bg-black text-white min-h-screen">
+
+<!-- Header -->
+<nav class="bg-gray-900 shadow-lg mb-6">
+  <div class="container mx-auto px-4 py-3">
+    <a href="/" class="flex items-center space-x-3">
+      <i class="fas fa-arrow-left text-gray-400 hover:text-white"></i>
+      <span class="text-lg font-semibold">Back to Home</span>
+    </a>
+  </div>
+</nav>
+
+<main class="container mx-auto px-4 py-6">
+  <div id="match-container" class="text-center">
+    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mb-4"></div>
+    <p class="text-gray-400">Loading match streams...</p>
+  </div>
+</main>
+
+<script>
+// Simple match loading without referrer checks or localStorage
+function loadMatch() {
+  const params = new URLSearchParams(window.location.search);
+  const matchName = params.get("name");
+
+  if (!matchName) {
+    document.getElementById('match-container').innerHTML = `
+      <div class="text-center py-20">
+        <i class="fas fa-exclamation-triangle text-4xl text-yellow-500 mb-4"></i>
+        <h2 class="text-xl mb-2">No match specified</h2>
+        <p class="text-gray-400 mb-4">Please select a match from the home page.</p>
+        <a href="/" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg">
+          Go to Home
+        </a>
+      </div>`;
+    return;
+  }
+
+  fetch(`https://scoobystreams.vercel.app/ascooby.json?nocache=${Date.now()}`)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      const match = data.find(m => m.name === matchName);
+
+      if (!match || !Array.isArray(match.streams)) {
+        document.getElementById('match-container').innerHTML = `
+          <div class="text-center py-20">
+            <i class="fas fa-tv text-4xl text-gray-500 mb-4"></i>
+            <h2 class="text-xl mb-2">No streams found</h2>
+            <p class="text-gray-400 mb-4">This match doesn't have any available streams.</p>
+            <a href="/" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg">
+              Back to Home
+            </a>
+          </div>`;
+        return;
+      }
+
+      let html = `
+        <section class="mb-8 text-center">
+          <h1 class="text-2xl font-bold mb-4">${matchName}</h1>
+          <img src="${match.image}" alt="${matchName}" class="w-full max-w-2xl mx-auto rounded-lg shadow-lg">
+        </section>
+        
+        <section>
+          <h2 class="text-xl font-semibold mb-6 text-center">Available Streams</h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+      `;
+
+      const cards = match.streams.map(stream => {
+        let linkUrl = "#";
+        if (stream.linkType === "external") {
+          linkUrl = stream.link;
+        } else if (stream.linkType === "internal") {
+          linkUrl = `play.html?${new URLSearchParams(stream).toString()}`;
+        }
+
+        return `
+          <article class="platform-card w-full max-w-[160px] sm:max-w-[180px] h-[200px] bg-gray-900 rounded-lg overflow-hidden flex flex-col">
+            <div class="aspect-video flex items-center justify-center bg-black flex-grow">
+              <img src="${stream.image}" alt="${stream.name}" class="max-w-[70%] max-h-[70%] object-contain p-2">
+            </div>
+            <div class="p-3 space-y-2 flex flex-col justify-between flex-shrink-0">
+              <h2 class="text-sm font-semibold truncate">${stream.name}</h2>
+              <a href="${linkUrl}" ${stream.linkType==="external" ? 'target="_blank"' : ''} 
+                class="block text-center bg-gradient-to-r from-red-600 to-red-700 text-white px-3 py-1.5 rounded-md text-xs font-medium">
+                <i class="fas fa-play"></i> Watch
+              </a>
+            </div>
+          </article>`;
+      }).join('');
+
+      html += cards + '</div></section>';
+      document.getElementById('match-container').innerHTML = html;
+    })
+    .catch(error => {
+      console.error('Error loading match data:', error);
+      document.getElementById('match-container').innerHTML = `
+        <div class="text-center py-20">
+          <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+          <h2 class="text-xl mb-2">Error loading match</h2>
+          <p class="text-gray-400 mb-4">Unable to fetch match data. Please try again.</p>
+          <button onclick="location.reload()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg mr-2">
+            <i class="fas fa-refresh mr-1"></i>Try Again
+          </button>
+          <a href="/" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg">
+            Go Home
+          </a>
+        </div>`;
+    });
+}
+
+// Load match when page loads
+document.addEventListener('DOMContentLoaded', loadMatch);
+</script>
+</body>
+</html>
