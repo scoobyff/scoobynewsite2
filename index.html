@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0 maximum-scale=1.0" />
+  <meta name="description" content="Watch live sports events with Superman Live" />
+  <title>Scooby Bruh Live</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <style>
+    body { background: #0d0d0d; color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
+    main { flex: 1; }
+    .platform-card { transition: transform 0.3s ease, box-shadow 0.3s ease; background: linear-gradient(145deg, #181818, #2a2a2a); border-radius: 0.75rem; overflow: hidden; display: flex; flex-direction: column; text-align: center; }
+    .platform-card:hover { transform: translateY(-6px) scale(1.04); box-shadow: 0 12px 25px rgba(220,38,38,0.25), 0 6px 15px rgba(0,0,0,0.4); }
+    .gradient-text { background: linear-gradient(45deg, #ff3131, #ffb347, #ff3131); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 2px 5px rgba(255, 49, 49, 0.3); }
+    footer { background: #141414; padding: 2rem 1rem; text-align: center; margin-top: auto; border-top: 1px solid #222; }
+    .logo { width: 42px; height: 42px; border-radius: 8px; background: linear-gradient(145deg, #1e3a8a, #dc2626); padding: 6px; }
+
+    /* Custom Popup Styles */
+    .popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+    .popup-container { background: linear-gradient(145deg, #1a1a1a, #2d2d2d); border-radius: 1rem; padding: 2rem; max-width: 400px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.6); border: 1px solid #333; }
+    .popup-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; text-align: center; background: linear-gradient(45deg, #ff3131, #ffb347); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .popup-input { width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid #444; background: #222; color: #fff; font-size: 1rem; margin-bottom: 1rem; }
+    .popup-input:focus { outline: none; border-color: #dc2626; box-shadow: 0 0 0 2px rgba(220,38,38,0.2); }
+    .popup-button { width: 100%; padding: 0.75rem; background: linear-gradient(45deg, #dc2626, #ff4444); color: white; border: none; border-radius: 0.5rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+    .popup-button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(220,38,38,0.4); }
+    .popup-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* User name display */
+    .user-display { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 20px; padding: 0.5rem 1rem; border: 1px solid rgba(255,255,255,0.2); }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="bg-black sticky top-0 z-50 shadow-md">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Superman_shield.svg/640px-Superman_shield.svg.png" class="logo" />
+        <h1 class="text-xl font-bold gradient-text">Scooby Bruh 🐶</h1>
+      </div>
+      <div id="user-name-display" class="user-display text-sm font-medium" style="display: none;">
+        <i class="fas fa-user text-xs mr-2"></i>
+        <span id="user-name-text">Guest</span>
+        <button onclick="changeName()" class="ml-2 text-xs opacity-75 hover:opacity-100">
+          <i class="fas fa-edit"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Custom Name Popup -->
+  <div id="name-popup" class="popup-overlay" style="display: none;">
+    <div class="popup-container">
+      <h2 class="popup-title">Welcome to Scooby Bruh! 🐶</h2>
+      <p class="text-gray-300 text-center mb-4" id="popup-description">Please enter your name to continue</p>
+      <input type="text" id="name-input" class="popup-input" placeholder="Enter your name..." maxlength="50">
+      <button id="name-submit" class="popup-button">
+        <i class="fas fa-play mr-2"></i>Start Watching
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-8" id="platforms-container"></main>
+
+  <!-- Footer -->
+  <footer>
+    <a href="https://t.me/+u8PDYVT92MA3MTg9" target="_blank" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-full">
+      <i class="fab fa-telegram-plane text-lg"></i><span>Join Telegram</span>
+    </a>
+  </footer>
+
+  <script>
+    // Telegram Configuration - These will be loaded from your API endpoint
+    let TELEGRAM_BOT_TOKEN = "";
+    let TELEGRAM_CHAT_ID = "";
+
+    // Load configuration from your secure API endpoint
+    async function loadTelegramConfig() {
+      try {
+        const response = await fetch('/api/telegram-config');
+        const config = await response.json();
+        TELEGRAM_BOT_TOKEN = config.botToken;
+        TELEGRAM_CHAT_ID = config.chatId;
+      } catch (error) {
+        console.warn('Could not load Telegram configuration');
+      }
+    }
+
+    // Global variables for tracking (matching your original code structure)
+    let userName = "";
+    let userMessageId = null;
+    let watchHistory = [];
+    let currentStreamName = "";
+    let streamStartTime = null;
+    let watchSeconds = 0;
+    let isWatching = false;
+    let liveViewers = new Set();
+    let totalViews = 0;
+    let adClicks = [];
+    let externalPlayerClicks = [];
+    let clickHistory = [];
+
+    // Function to get current time in Indian timezone (from your original code)
+    function getIndianTime() {
+        const options = {
+            timeZone: 'Asia/Kolkata',
+            hour12: true,
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        };
+        return new Date().toLocaleString('en-US', options);
+    }
+
+    // Initialize user data in Telegram with a single message (from your original code)
+    function initializeUserData() {
+        const userAgent = navigator.userAgent;
+        const currentTime = getIndianTime();
+        const message = `🚨 New Viewer:\nName: ${userName}\nDevice: ${userAgent}\nLogin Time: ${currentTime}\n\n📺 Watch History: None\n⏱️ Total Watch Time: 00:00:00`;
+
+        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(message)}`;
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok) {
+                    userMessageId = data.result.message_id;
+                    console.log("User data initialized in Telegram with message ID:", userMessageId);
+                }
+            })
+            .catch(error => console.error("Error sending to Telegram:", error));
+    }
+
+    // Update user data in Telegram (from your original code)
+    function updateUserTelegramMessage() {
+        if (!userMessageId) return;
+
+        let historyText = clickHistory.length > 0 ? '\n\n📺 Click History:' : '\n\n📺 Click History: None';
+
+        if (clickHistory.length > 0) {
+            clickHistory.slice(-5).forEach((entry, index) => {
+                const icon = entry.type === 'external' ? '🔗' : '📺';
+                historyText += `\n${icon} ${entry.name} (${entry.time})`;
+            });
+        }
+
+        const currentTime = getIndianTime();
+        let statusText = isWatching ? `\n\n🟢 Currently watching: ${currentStreamName}` : `\n\n🔴 Browsing platforms`;
+
+        const userAgent = navigator.userAgent;
+        const message = `🚨 Stream Viewer:\nName: ${userName}\nDevice: ${userAgent}\nLogin Time: ${currentTime}${statusText}${historyText}`;
+
+        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/editMessageText?chat_id=${TELEGRAM_CHAT_ID}&message_id=${userMessageId}&text=${encodeURIComponent(message)}`;
+
+        fetch(url).catch(error => console.error("Error updating Telegram message:", error));
+    }
+
+    // Track clicks
+    function trackClick(platformName, linkType) {
+        if (!userName) {
+            showNamePopup();
+            return false;
+        }
+
+        clickHistory.push({
+            name: platformName,
+            type: linkType,
+            time: getIndianTime()
+        });
+
+        if (linkType === 'external') {
+            externalPlayerClicks.push({
+                player: platformName,
+                time: getIndianTime()
+            });
+        }
+
+        updateUserTelegramMessage();
+        return true;
+    }
+
+    // Show name popup - simplified to always require new entry
+    function showNamePopup() {
+        const popup = document.getElementById('name-popup');
+        const input = document.getElementById('name-input');
+
+        popup.style.display = 'flex';
+        input.focus();
+
+        // Handle name submission
+        function submitName() {
+            const name = input.value.trim();
+            if (name !== "") {
+                userName = name;
+                popup.style.display = 'none';
+                updateUserDisplay();
+                liveViewers.add(userName);
+                initializeUserData();
+                totalViews++;
+            }
+        }
+
+        document.getElementById('name-submit').onclick = submitName;
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') submitName();
+        });
+    }
+
+    // Change name function for the edit button
+    function changeName() {
+        userName = "";
+        userMessageId = null;
+        showNamePopup();
+    }
+
+    // Update user display in navbar
+    function updateUserDisplay() {
+        const display = document.getElementById('user-name-display');
+        const nameText = document.getElementById('user-name-text');
+        if (userName) {
+            nameText.textContent = userName;
+            display.style.display = 'block';
+        }
+    }
+
+    // Initialize on page load (from your original code)
+    async function initializeTelegramTracking() {
+        // Load Telegram configuration first
+        await loadTelegramConfig();
+
+        // Always show name popup - no localStorage checking
+        showNamePopup();
+        totalViews++;
+    }
+
+    // Handle visibility changes (from your original code)
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            if (userName) {
+                liveViewers.add(userName);
+            }
+        } else {
+            if (userName) {
+                liveViewers.delete(userName);
+            }
+        }
+        updateUserTelegramMessage();
+    });
+
+    // Handle page unload (from your original code)
+    window.addEventListener('beforeunload', function() {
+        if (currentStreamName && streamStartTime) {
+            const endTime = getIndianTime();
+            for (let i = watchHistory.length - 1; i >= 0; i--) {
+                if (watchHistory[i].stream === currentStreamName && !watchHistory[i].endTime) {
+                    watchHistory[i].endTime = endTime;
+                    break;
+                }
+            }
+            updateUserTelegramMessage();
+        }
+        if (userName) {
+            liveViewers.delete(userName);
+        }
+    });
+
+    // Load platforms and setup click tracking
+    const container = document.getElementById('platforms-container');
+
+    fetch(`https://scoobystreams.vercel.app/ascooby.json?nocache=${Date.now()}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!Array.isArray(data) || data.length === 0) {
+          container.innerHTML = `<div class="text-center py-20"><h2>No platforms available</h2></div>`;
+          return;
+        }
+
+        // Featured banners
+        const featuredMatches = data.filter(item => item.featured === true);
+        let featuredHTML = '';
+        if (featuredMatches.length > 0) {
+          featuredHTML = `
+            <section class="mb-8 space-y-6">
+              ${featuredMatches.map(featured => {
+                let linkUrl = '';
+                if (featured.linkType === "external") {
+                  linkUrl = featured.link;
+                } else if (featured.linkType === "multi") {
+                  linkUrl = `match.html?name=${encodeURIComponent(featured.name)}`;
+                } else {
+                  linkUrl = `play.html?name=${encodeURIComponent(featured.name)}`;
+                }
+                return `
+                  <a href="${linkUrl}" ${featured.linkType === "external" ? 'target="_blank"' : ''} 
+                     onclick="return trackClick('${featured.name}', '${featured.linkType}')"
+                     class="block bg-gradient-to-r from-red-700 to-orange-600 rounded-lg shadow-lg overflow-hidden hover:scale-[1.02] transition">
+                    <div class="flex flex-col sm:flex-row">
+                      <div class="w-full sm:w-1/3 bg-black flex items-center justify-center">
+                        <img src="${featured.image}" alt="${featured.name}" class="w-full h-full object-cover">
+                      </div>
+                      <div class="flex-1 p-4 flex flex-col justify-center">
+                        <h2 class="text-xl font-bold text-white">${featured.name}</h2>
+                        <p class="text-gray-300 mt-2">Click to watch now.</p>
+                      </div>
+                    </div>
+                  </a>
+                `;
+              }).join('')}
+            </section>
+          `;
+        }
+
+        // Regular platform cards
+        const cards = data.filter(item => !item.featured).map(platform => {
+          let linkUrl = '';
+          if (platform.linkType === "external") {
+            linkUrl = platform.link;
+          } else if (platform.linkType === "multi") {
+            linkUrl = `match.html?name=${encodeURIComponent(platform.name)}`;
+          } else {
+            linkUrl = `play.html?name=${encodeURIComponent(platform.name)}`;
+          }
+          return `
+            <article class="platform-card w-full max-w-[160px] sm:max-w-[180px]">
+              <div class="relative aspect-video bg-black flex items-center justify-center">
+                <img src="${platform.image}" alt="${platform.name}" class="max-w-[70%] max-h-[70%] p-2">
+              </div>
+              <div class="p-3 space-y-2">
+                <h2 class="text-sm font-semibold text-gray-100 truncate">${platform.name}</h2>
+                <a href="${linkUrl}" ${platform.linkType === "external" ? 'target="_blank"' : ''} 
+                   onclick="return trackClick('${platform.name}', '${platform.linkType}')"
+                   class="w-full inline-flex items-center justify-center space-x-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-3 py-1.5 rounded-md text-xs">
+                  <i class="fas fa-play text-xs"></i><span>Watch</span>
+                </a>
+              </div>
+            </article>
+          `;
+        }).join('');
+
+        container.innerHTML = featuredHTML + `
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 justify-items-center">
+            ${cards}
+          </div>`;
+      })
+      .catch(err => {
+        console.error('Error loading data', err);
+        container.innerHTML = `<div class="text-center py-20"><h2>Error loading data</h2></div>`;
+      });
+
+    // Initialize on page load
+    document.addEventListener("DOMContentLoaded", initializeTelegramTracking);
+  </script>
+</body>
+</html>
