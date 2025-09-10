@@ -72,23 +72,16 @@
   </footer>
 
   <script>
-    // Telegram Configuration - These will be loaded from your API endpoint
-    let TELEGRAM_BOT_TOKEN = "";
-    let TELEGRAM_CHAT_ID = "";
+    // Telegram Configuration - Get from environment variables
+    const TELEGRAM_BOT_TOKEN = window.ENV?.TELEGRAM_BOT_TOKEN || "";
+    const TELEGRAM_CHAT_ID = window.ENV?.TELEGRAM_CHAT_ID || "";
 
-    // Load configuration from your secure API endpoint
-    async function loadTelegramConfig() {
-      try {
-        const response = await fetch('/api/telegram-config');
-        const config = await response.json();
-        TELEGRAM_BOT_TOKEN = config.botToken;
-        TELEGRAM_CHAT_ID = config.chatId;
-      } catch (error) {
-        console.warn('Could not load Telegram configuration');
-      }
-    }
+    // Alternative way to get environment variables if the above doesn't work
+    // You can replace these with your actual values or use a different method
+    // const TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE";
+    // const TELEGRAM_CHAT_ID = "YOUR_CHAT_ID_HERE";
 
-    // Global variables for tracking (matching your original code structure)
+    // Global variables for tracking
     let userName = "";
     let userMessageId = null;
     let watchHistory = [];
@@ -102,7 +95,7 @@
     let externalPlayerClicks = [];
     let clickHistory = [];
 
-    // Function to get current time in Indian timezone (from your original code)
+    // Function to get current time in Indian timezone
     function getIndianTime() {
         const options = {
             timeZone: 'Asia/Kolkata',
@@ -117,8 +110,45 @@
         return new Date().toLocaleString('en-US', options);
     }
 
-    // Initialize user data in Telegram with a single message (from your original code)
+    // Save user name to sessionStorage (persists during browser session)
+    function saveUserName(name) {
+        try {
+            sessionStorage.setItem('scooby_user_name', name);
+            sessionStorage.setItem('scooby_user_timestamp', Date.now().toString());
+        } catch (error) {
+            console.warn('Could not save user name to sessionStorage');
+        }
+    }
+
+    // Load user name from sessionStorage
+    function loadUserName() {
+        try {
+            const savedName = sessionStorage.getItem('scooby_user_name');
+            const timestamp = sessionStorage.getItem('scooby_user_timestamp');
+            
+            // Check if the session is still valid (within 24 hours)
+            if (savedName && timestamp) {
+                const now = Date.now();
+                const savedTime = parseInt(timestamp);
+                const hoursDiff = (now - savedTime) / (1000 * 60 * 60);
+                
+                if (hoursDiff < 24) {
+                    return savedName;
+                }
+            }
+        } catch (error) {
+            console.warn('Could not load user name from sessionStorage');
+        }
+        return null;
+    }
+
+    // Initialize user data in Telegram with a single message
     function initializeUserData() {
+        if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+            console.warn('Telegram configuration not found');
+            return;
+        }
+
         const userAgent = navigator.userAgent;
         const currentTime = getIndianTime();
         const message = `🚨 New Viewer:\nName: ${userName}\nDevice: ${userAgent}\nLogin Time: ${currentTime}\n\n📺 Watch History: None\n⏱️ Total Watch Time: 00:00:00`;
@@ -136,9 +166,9 @@
             .catch(error => console.error("Error sending to Telegram:", error));
     }
 
-    // Update user data in Telegram (from your original code)
+    // Update user data in Telegram
     function updateUserTelegramMessage() {
-        if (!userMessageId) return;
+        if (!userMessageId || !TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
 
         let historyText = clickHistory.length > 0 ? '\n\n📺 Click History:' : '\n\n📺 Click History: None';
 
@@ -184,7 +214,7 @@
         return true;
     }
 
-    // Show name popup - simplified to always require new entry
+    // Show name popup
     function showNamePopup() {
         const popup = document.getElementById('name-popup');
         const input = document.getElementById('name-input');
@@ -197,6 +227,7 @@
             const name = input.value.trim();
             if (name !== "") {
                 userName = name;
+                saveUserName(name); // Save to sessionStorage
                 popup.style.display = 'none';
                 updateUserDisplay();
                 liveViewers.add(userName);
@@ -215,6 +246,13 @@
     function changeName() {
         userName = "";
         userMessageId = null;
+        // Clear saved name
+        try {
+            sessionStorage.removeItem('scooby_user_name');
+            sessionStorage.removeItem('scooby_user_timestamp');
+        } catch (error) {
+            console.warn('Could not clear sessionStorage');
+        }
         showNamePopup();
     }
 
@@ -228,17 +266,25 @@
         }
     }
 
-    // Initialize on page load (from your original code)
+    // Initialize on page load
     async function initializeTelegramTracking() {
-        // Load Telegram configuration first
-        await loadTelegramConfig();
-
-        // Always show name popup - no localStorage checking
-        showNamePopup();
+        // Check if user name is already saved
+        const savedName = loadUserName();
+        
+        if (savedName) {
+            userName = savedName;
+            updateUserDisplay();
+            liveViewers.add(userName);
+            // Don't initialize new Telegram message for returning users
+            // Just update existing one if we have messageId saved
+        } else {
+            showNamePopup();
+        }
+        
         totalViews++;
     }
 
-    // Handle visibility changes (from your original code)
+    // Handle visibility changes
     document.addEventListener('visibilitychange', function() {
         if (document.visibilityState === 'visible') {
             if (userName) {
@@ -252,7 +298,7 @@
         updateUserTelegramMessage();
     });
 
-    // Handle page unload (from your original code)
+    // Handle page unload
     window.addEventListener('beforeunload', function() {
         if (currentStreamName && streamStartTime) {
             const endTime = getIndianTime();
