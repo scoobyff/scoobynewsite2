@@ -72,14 +72,35 @@
   </footer>
 
   <script>
-    // Telegram Configuration - Get from environment variables
-    const TELEGRAM_BOT_TOKEN = window.ENV?.TELEGRAM_BOT_TOKEN || "";
-    const TELEGRAM_CHAT_ID = window.ENV?.TELEGRAM_CHAT_ID || "";
+    // Telegram Configuration - Load from secure API endpoint
+    let TELEGRAM_BOT_TOKEN = "";
+    let TELEGRAM_CHAT_ID = "";
 
-    // Alternative way to get environment variables if the above doesn't work
-    // You can replace these with your actual values or use a different method
-    // const TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN_HERE";
-    // const TELEGRAM_CHAT_ID = "YOUR_CHAT_ID_HERE";
+    // Load configuration from secure API endpoint
+    async function loadTelegramConfig() {
+      try {
+        console.log('Loading Telegram configuration...');
+        const response = await fetch('/api/telegram-config');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const config = await response.json();
+        console.log('Config loaded:', { 
+          hasBotToken: !!config.botToken, 
+          hasChatId: !!config.chatId 
+        });
+        
+        TELEGRAM_BOT_TOKEN = config.botToken;
+        TELEGRAM_CHAT_ID = config.chatId;
+        
+        return true;
+      } catch (error) {
+        console.error('Could not load Telegram configuration:', error);
+        return false;
+      }
+    }
 
     // Global variables for tracking
     let userName = "";
@@ -144,8 +165,12 @@
 
     // Initialize user data in Telegram with a single message
     function initializeUserData() {
+        // Debug: Check if tokens are available
+        console.log('Bot token available:', !!TELEGRAM_BOT_TOKEN);
+        console.log('Chat ID available:', !!TELEGRAM_CHAT_ID);
+        
         if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-            console.warn('Telegram configuration not found');
+            console.warn('Telegram configuration missing - messages will not be sent');
             return;
         }
 
@@ -155,15 +180,28 @@
 
         const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodeURIComponent(message)}`;
 
+        console.log('Sending to Telegram for user:', userName);
+
         fetch(url)
-            .then(response => response.json())
+            .then(response => {
+                console.log('Telegram response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Telegram response:', data);
                 if (data.ok) {
                     userMessageId = data.result.message_id;
-                    console.log("User data initialized in Telegram with message ID:", userMessageId);
+                    console.log("✅ User data sent to Telegram successfully! Message ID:", userMessageId);
+                } else {
+                    console.error("❌ Telegram API error:", data);
                 }
             })
-            .catch(error => console.error("Error sending to Telegram:", error));
+            .catch(error => {
+                console.error("❌ Error sending to Telegram:", error);
+            });
     }
 
     // Update user data in Telegram
@@ -268,6 +306,13 @@
 
     // Initialize on page load
     async function initializeTelegramTracking() {
+        // Load Telegram configuration first
+        const configLoaded = await loadTelegramConfig();
+        
+        if (!configLoaded) {
+          console.warn('Telegram tracking disabled - configuration not available');
+        }
+        
         // Check if user name is already saved
         const savedName = loadUserName();
         
